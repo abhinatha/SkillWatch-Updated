@@ -1,4 +1,85 @@
-# SkillWatch
+# SkillWatch v0.3.0 (Ashita v4.30 rewrite)
+
+Overlay that shows the ability/spell a mob is readying, with an optional blinking
+alert for skills you care about (stun targets, etc).
+
+## What changed vs 0.2.1
+
+**Detection is now packet-driven.** The addon parses incoming action packets
+(`0x28`, category 7 = "readies", category 8 = "starts casting") instead of
+scraping the chat box for the word "readies".
+
+Consequences:
+
+* **Fully compatible with SimpleLog.** No need to edit
+  `simplelog/lib/constants.lua`, no need to move mode `43` out of `block_modes`.
+  SimpleLog blocks/rewrites *chat text*; SkillWatch no longer reads chat text.
+* Works when SimpleLog rewrites the readies line into its own condensed format
+  (which stripped the word "readies" entirely and broke the old parser).
+* Language- and format-independent. Ability names come from Ashita's resource
+  manager (`monsters.abilities`), so they always match exactly.
+* Detection is no longer dependent on the mob's name appearing in the message,
+  which broke on `-`-hyphenated names, common nouns ("The Mandragora"), and
+  pattern metacharacters.
+
+### Bugs fixed
+
+* `EndTabBar()` was called even when `BeginTabBar()` returned false → ImGui assert.
+* Debug tab item was created outside the tab bar scope.
+* `imgui.Begin('SkillWatchOL', true, ...)` passed a boolean where a table/nil is
+  expected; that whole invisible window is gone.
+* `filter_settings` register callback saved `general_settings`, so filter changes
+  could be lost.
+* `default_filterSettings = T{abilityFilters,}` referenced an undefined global.
+* `overlay.search[1]` / `customFilter[1]` were `nil` on first frame → runtime error.
+* Search used the input as a Lua pattern; typing `(`, `?`, `%` etc. errored.
+  Now plain substring matching.
+* Blink color used `bit.tobit()` on floats and produced signed values; replaced
+  with plain arithmetic ARGB and a clean triangle wave (no `blinkDir` flip-flop).
+* Default blink RGB was `0,0,0` (invisible blink). Now `255,0,0`.
+* Empty/whitespace ImGui labels (`''`, `' '`, `'\13'`) caused ID collisions.
+  All widgets now use explicit `##ids`.
+* Entire 1159-entry ability table was serialized into the settings file on every
+  save. Only enabled names are stored now.
+* Overlay position was saved every frame it changed; now throttled to 1s.
+
+### New
+
+* `Show mob name` — prefixes the overlay with the caster.
+* `Current target only` — on by default (old behaviour); turn off to see readies
+  from any nearby mob.
+* `Mobs only` — ignore players/trusts/pets.
+* `Also watch spellcasting` — catches "starts casting" (category 8) too.
+* `Display Duration (sec)` — replaces the hardcoded 3.0s window.
+* `Legacy chat fallback` — off by default. If enabled, the old text parser runs
+  *only* until the first successful packet detection, then permanently defers.
+* Timer clears early when the mob actually fires the move (categories 3/4/11).
+
+## Install
+
+Drop the `skillwatch` folder into `<Ashita>/addons/`.
+
+```
+/addon load skillwatch
+```
+
+## Commands
+
+| Command | Effect |
+|---|---|
+| `/skillwatch` or `/sw` | toggle config window |
+| `/sw debug` | toggle the Debug tab |
+| `/sw reload` | rebuild the ability name list from resources |
+| `/sw reset` | reset overlay position to 100,100 |
+
+## Notes
+
+* `data/abilities.txt` is retained only as a fallback if the resource manager
+  returns nothing at load time. Normally the list is built from Ashita resources.
+* The overlay is an Ashita font object — drag it to reposition while the config
+  window is open ("Adjust Mode").
+
+-----------------------------------------------------------------------------------------------------------------------------------------
 
 ### What is it?
 Skillwatch is an add-on for FFXI's third-party loader and hook Ashita (https://www.ashitaxi.com/).
