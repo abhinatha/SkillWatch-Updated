@@ -9,7 +9,7 @@
 
 addon.name      = 'skillwatch';
 addon.author    = 'Arielfy (v0.3.0 rewrite)';
-addon.version   = '0.3.0';
+addon.version   = '0.3.1';
 addon.desc      = 'Displays abilities/spells being readied by mobs.';
 addon.link      = 'https://github.com/ariel-logos/SkillWatch';
 
@@ -548,6 +548,20 @@ end
 -- Config UI
 ----------------------------------------------------------------------------------------------------
 
+-- ImGui 1.90+ changed BeginChild's third parameter from bool to ImGuiChildFlags.
+-- Ashita v4.30 ships the newer binding; older builds still want a bool.
+local child_border_arg = 1;
+local function begin_child(id, size)
+    local ok, res = pcall(imgui.BeginChild, id, size, child_border_arg);
+    if (ok) then return res; end
+
+    child_border_arg = (child_border_arg == 1) and true or 1;
+    ok, res = pcall(imgui.BeginChild, id, size, child_border_arg);
+    if (ok) then return res; end
+
+    return imgui.BeginChild(id, size);
+end
+
 local function render_filters_tab()
     if (imgui.InputText('Search##sw_search', sw.search, 255)) then
         rebuild_filtered_list();
@@ -559,7 +573,7 @@ local function render_filters_tab()
 
     imgui.BeginGroup();
     imgui.TextColored({ 1.0, 1.0, 1.0, 1.0 }, 'Skills');
-    imgui.BeginChild('##sw_leftpane', { 250, 250, }, true);
+    begin_child('##sw_leftpane', { 250, 250, });
     for n = 1, #sw.filtered do
         local idx  = sw.filtered[n];
         local name = sw.abilities[idx];
@@ -575,7 +589,7 @@ local function render_filters_tab()
 
     imgui.BeginGroup();
     imgui.TextColored({ 1.0, 1.0, 1.0, 1.0 }, 'Enable');
-    imgui.BeginChild('##sw_rightpane', { 75, 250, }, true);
+    begin_child('##sw_rightpane', { 75, 250, });
     if (sw.selected[1] > 0 and sw.abilities[sw.selected[1]] ~= nil) then
         local name = sw.abilities[sw.selected[1]];
         local box  = { sw.filters.enabled[name] == true };
