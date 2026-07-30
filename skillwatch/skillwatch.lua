@@ -9,7 +9,7 @@
 
 addon.name      = 'skillwatch';
 addon.author    = 'Arielfy (v0.3.0 rewrite)';
-addon.version   = '0.3.1';
+addon.version   = '0.3.2';
 addon.desc      = 'Displays abilities/spells being readied by mobs.';
 addon.link      = 'https://github.com/ariel-logos/SkillWatch';
 
@@ -180,6 +180,17 @@ local function resource_manager()
     return AshitaCore:GetResourceManager();
 end
 
+-- Ashita returns placeholder strings such as '#1836' or '.' for unused resource
+-- slots. Those are not real names and must never reach the list or the overlay.
+local function valid_name(n)
+    if (n == nil or type(n) ~= 'string') then return false; end
+    if (n == '' or n == '.' or n == '-') then return false; end
+    local c = n:sub(1, 1);
+    if (c == '#' or c == '.') then return false; end
+    if (n:match('^%s*$') ~= nil) then return false; end
+    return true;
+end
+
 -- Resolve a category-7/11 ability id to its English name.
 local function ability_name(id)
     local rm = resource_manager();
@@ -187,11 +198,11 @@ local function ability_name(id)
 
     if (id >= MOB_ABILITY_BASE) then
         local n = rm:GetString('monsters.abilities', id - MOB_ABILITY_BASE, 2);
-        if (n ~= nil and n ~= '') then return n; end
+        if (valid_name(n)) then return n; end
     end
 
     local a = rm:GetAbilityById(id);
-    if (a ~= nil and a.Name ~= nil and a.Name[1] ~= nil and a.Name[1] ~= '') then
+    if (a ~= nil and a.Name ~= nil and valid_name(a.Name[1])) then
         return a.Name[1];
     end
 
@@ -256,30 +267,36 @@ local function build_ability_list()
     local rm   = resource_manager();
 
     if (rm ~= nil) then
-        -- Monster TP moves.
-        local misses = 0;
+        -- Monster TP moves. Do NOT break on a gap: the table is sparse and
+        -- Ashita hands back '#<index>' placeholders instead of nil.
         for i = 1, 4116 do
             local n = rm:GetString('monsters.abilities', i, 2);
-            if (n == nil or n == '') then
-                misses = misses + 1;
-                if (misses > 64) then break; end
-            else
-                misses = 0;
-                if (not seen[n]) then seen[n] = true; list:append(n); end
+            if (valid_name(n) and not seen[n]) then
+                seen[n] = true;
+                list:append(n);
             end
         end
         -- Weaponskills (pets / charmed players also "ready" these).
         for i = 1, 255 do
             local a = rm:GetAbilityById(i);
-            if (a ~= nil and a.Name ~= nil and a.Name[1] ~= nil and a.Name[1] ~= '') then
+            if (a ~= nil and a.Name ~= nil and valid_name(a.Name[1])) then
                 local n = a.Name[1];
-                if (not seen[n]) then seen[n] = true; list:append(n); end
+                if (not seen[n]) then
+                    seen[n] = true;
+                    list:append(n);
+                end
             end
         end
     end
 
-    if (#list == 0) then
-        list = load_abilities_from_file();
+    -- If the resource table came back unusable, fall back to the bundled list.
+    if (#list < 100) then
+        for _, n in ipairs(load_abilities_from_file()) do
+            if (valid_name(n) and not seen[n]) then
+                seen[n] = true;
+                list:append(n);
+            end
+        end
     end
 
     table.sort(list, function (a, b) return a:lower() < b:lower(); end);
@@ -743,6 +760,16 @@ ashita.events.register('load', 'skillwatch_load', function ()
     sw.filters  = settings.load(default_filters, 'filter_settings');
 
     if (sw.filters.enabled == nil) then sw.filters.enabled = T{}; end
+
+    -- Drop any '#1836'-style placeholders saved by an earlier build.
+    local purged = false;
+    for k, _ in pairs(sw.filters.enabled) do
+        if (not valid_name(k)) then
+            sw.filters.enabled[k] = nil;
+            purged = true;
+        end
+    end
+    if (purged) then save_filters(); end
 
     local h = math.floor(11 * sw.settings.size[1]) + 1;
     sw.settings.font.font_height = h;
