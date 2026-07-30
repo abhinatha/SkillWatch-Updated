@@ -102,7 +102,7 @@ The overlay has different visual options such as size adjustment, repositioning,
 Normal skill overlay | Filtered skill overlay (blinking alert effect)
 
 ### Installation
-Go over the <a href="https://github.com/ariel-logos/SkillWatch/releases" target="_blank">Releases</a> page, download the latest version and unpack it in the add-on folder in your Ashita installation folder. You should now have among the other add-on folders the "skillwatch" one!
+Go over the <a href="[https://github.com/ariel-logos/SkillWatch/releases](https://github.com/abhinatha/SkillWatch-Updated/releases)" target="_blank">Releases</a> page, download the latest version and unpack it in the add-on folder in your Ashita installation folder. You should now have among the other add-on folders the "skillwatch" one!
 <br></br>
 ### Compatibility Issues
 None now
